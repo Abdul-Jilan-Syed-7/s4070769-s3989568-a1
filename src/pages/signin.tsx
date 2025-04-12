@@ -1,20 +1,49 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
+import { useAuth } from "../context/AuthContext";
 
 export default function SignIn() {
   const router = useRouter();
+  const { login } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
+  // CAPTCHA-related states
+  const [num1, setNum1] = useState(0);
+  const [num2, setNum2] = useState(0);
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+  const [captchaError, setCaptchaError] = useState("");
+
+  // Generate CAPTCHA when page loads
+  useEffect(() => {
+    generateCaptcha();
+  }, []);
+
+  const generateCaptcha = () => {
+    const a = Math.floor(Math.random() * 10) + 1;
+    const b = Math.floor(Math.random() * 10) + 1;
+    setNum1(a);
+    setNum2(b);
+    setCaptchaAnswer("");
+    setCaptchaError("");
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const correctAnswer = num1 + num2;
 
-    if (storedUser.email === email && storedUser.password === password) {
-      setMessage("Login successful!");
-      // Simple redirection demo; later update based on role
+    if (parseInt(captchaAnswer) !== correctAnswer) {
+      setCaptchaError("Incorrect CAPTCHA answer. Please try again.");
+      generateCaptcha();
+      return;
+    }
+
+    const success = login(email, password);
+
+    if (success) {
       if (email.includes("lecturer")) {
         router.push("/lecturer-dashboard");
       } else {
@@ -45,10 +74,25 @@ export default function SignIn() {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <button
-          type="submit"
-          className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
-        >
+
+        {/* CAPTCHA Section */}
+        <div>
+          <label className="block text-sm mb-1">
+            What is {num1} + {num2}? (CAPTCHA)
+          </label>
+          <input
+            type="number"
+            className="p-2 border rounded w-full"
+            value={captchaAnswer}
+            onChange={(e) => setCaptchaAnswer(e.target.value)}
+            required
+          />
+          {captchaError && (
+            <p className="text-sm text-red-600 mt-1">{captchaError}</p>
+          )}
+        </div>
+
+        <button type="submit" className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">
           Sign In
         </button>
       </form>

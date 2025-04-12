@@ -1,10 +1,18 @@
-export type User = {
-  id: string;
+export interface User {
   username: string;
   password: string;
-};
+  role: "tutor" | "lecturer";
+}
 
 export const DEFAULT_USERS: User[] = [
-  { id: "1", username: "john", password: "password123" },
-  { id: "2", username: "jane", password: "password456" },
+  {
+    username: "lecturer@example.com",
+    password: "lecturer123",
+    role: "lecturer",
+  },
+  {
+    username: "tutor@example.com",
+    password: "tutor123",
+    role: "tutor",
+  },
 ];
