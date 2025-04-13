@@ -6,7 +6,7 @@ export interface User {
 
 export const DEFAULT_USERS: User[] = [
   {
-    username: "lecturer@example.com",
+    username: "",
     password: "lecturer123",
     role: "lecturer",
   },
