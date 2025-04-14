@@ -2,8 +2,18 @@ import Navbar from "../components/nav";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { createPortal } from "react-dom";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Cell,
+  Legend,
+} from "recharts";
 
-// Types
+
 interface Applicant {
   email: string;
   username: string;
@@ -71,7 +81,7 @@ function RankModal({ onClose, onSave, applicant, usedRanks }: {
   );
 }
 
-// Main component
+
 export default function LecturerDashboard() {
   const { lecturer } = useAuth();
   const [applicants, setApplicants] = useState<Applicant[]>([]);
@@ -83,7 +93,7 @@ export default function LecturerDashboard() {
   const [mostChosen, setMostChosen] = useState<string | null>(null);
   const [leastChosen, setLeastChosen] = useState<string | null>(null);
   const [unselected, setUnselected] = useState<string[]>([]);
-  const [rankOneCounts, setRankOneCounts] = useState<Record<string, number>>({});
+  const [priorityData, setPriorityData] = useState<any[]>([]);
 
   useEffect(() => {
     const data = localStorage.getItem("applicants");
@@ -94,25 +104,47 @@ export default function LecturerDashboard() {
 
   useEffect(() => {
     const countMap: Record<string, number> = {};
-    const rankOneMap: Record<string, number> = {};
     Object.values(selectedReviews).forEach((r) => {
       countMap[r.username] = (countMap[r.username] || 0) + 1;
-      if (r.rank === 1) {
-        rankOneMap[r.username] = (rankOneMap[r.username] || 0) + 1;
-      }
     });
     const entries = Object.entries(countMap);
-    entries.sort((a, b) => {
-      if (b[1] === a[1]) return a[0].localeCompare(b[0]);
-      return b[1] - a[1];
-    });
-    setMostChosen(entries[0]?.[0] || null);
-    setLeastChosen(entries[entries.length - 1]?.[0] || null);
-    setRankOneCounts(rankOneMap);
-
+    setMostChosen(entries.sort((a, b) => b[1] - a[1])[0]?.[0] || null);
+    setLeastChosen(entries.sort((a, b) => a[1] - b[1])[0]?.[0] || null);
     const selectedUsernames = new Set(Object.keys(countMap));
     setUnselected(applicants.map(a => a.username).filter(u => !selectedUsernames.has(u)));
+    const maxRank = 5;
+const allUsernames = new Set(applicants.map((a) => a.username));
+const scores: any[] = [];
+const getColor = (status: string) => {
+  if (status === "highest") return "#34D399"; 
+  if (status === "selected") return "#60A5FA"; 
+  return "#D1D5DB"; 
+};
+
+allUsernames.forEach((username) => {
+  const review = Object.values(selectedReviews).find((r) => r.username === username);
+  if (review) {
+    scores.push({
+      username,
+      priorityScore: maxRank + 1 - review.rank,
+      status: "selected",
+    });
+  } else {
+    scores.push({ username, priorityScore: 0, status: "unselected" });
+  }
+});
+
+const highest = Math.max(...scores.map((s) => s.priorityScore));
+scores.forEach((s) => {
+  if (s.priorityScore === highest && s.status === "selected") {
+    s.status = "highest";
+  }
+});
+
+setPriorityData(scores);
+
   }, [selectedReviews, applicants]);
+
 
   const handleSaveReview = (rank: number, comment: string) => {
     if (!selectedApplicant) return;
@@ -185,7 +217,7 @@ export default function LecturerDashboard() {
         <h1 className="text-3xl font-bold mb-2">Welcome, {lecturer?.username}</h1>
         <h2 className="text-xl font-semibold text-gray-600 mb-6">LECTURER DASHBOARD</h2>
 
-        <div className="mb-4 grid md:grid-cols-3 gap-4">
+        <div className="mb-6 grid md:grid-cols-3 gap-4">
           <div>
             <label className="block font-medium mb-1">Filter by Course:</label>
             <select
@@ -224,8 +256,46 @@ export default function LecturerDashboard() {
           </div>
         </div>
 
+        
+        <div className="mb-8 bg-white border rounded p-4 shadow">
+          <h3 className="text-lg font-bold mb-2">Applicant Selection Summary</h3>
+          <p><strong>Most Chosen Applicant:</strong> {mostChosen || "N/A"}</p>
+          <p><strong>Least Chosen Applicant:</strong> {leastChosen || "N/A"}</p>
+          <p><strong>Unselected Applicants:</strong> {unselected.length > 0 ? unselected.join(", ") : "None"}</p>
+        </div>
+
+
+        {priorityData.length > 0 && (
+  <div className="mb-10 bg-white p-6 rounded shadow">
+    <h3 className="text-xl font-semibold mb-4 text-center">Overall Applicant Priority</h3>
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={priorityData} layout="vertical">
+        <XAxis type="number" />
+        <YAxis dataKey="username" type="category" width={150} />
+        <Tooltip />
+        <Legend />
+        <Bar dataKey="priorityScore" name="Priority Score">
+          {priorityData.map((entry, index) => (
+            <Cell key={index} fill={
+              entry.status === "highest" ? "#34D399" :
+              entry.status === "selected" ? "#60A5FA" :
+              "#D1D5DB"
+            } />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+    <div className="mt-2 text-sm text-center text-gray-600">
+      <strong>Legend:</strong>{" "}
+      <span className="text-green-600 font-semibold">Highest</span>,{" "}
+      <span className="text-blue-600 font-semibold">Selected</span>,{" "}
+      <span className="text-gray-600 font-semibold">Unselected</span>
+    </div>
+  </div>
+)}
+
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Tutor Applications */}
+          
           <div>
             <h3 className="text-lg font-bold mb-4 text-blue-600">Tutor Applicants</h3>
             <div className="space-y-4">
@@ -233,7 +303,7 @@ export default function LecturerDashboard() {
             </div>
           </div>
 
-          {/* Lab Assistant Applications */}
+          
           <div>
             <h3 className="text-lg font-bold mb-4 text-green-600">Lab Assistant Applicants</h3>
             <div className="space-y-4">
@@ -251,24 +321,6 @@ export default function LecturerDashboard() {
           />
         )}
       </div>
-      <div className="mb-8 bg-white border rounded p-4 shadow">
-          <h3 className="text-lg font-bold mb-2">Applicant Selection Summary</h3>
-          <p><strong>Most Chosen Applicant:</strong> {mostChosen || "N/A"}</p>
-          <p><strong>Least Chosen Applicant:</strong> {leastChosen || "N/A"}</p>
-          <p><strong>Unselected Applicants:</strong> {unselected.length > 0 ? unselected.join(", ") : "None"}</p>
-          <div className="mt-2">
-            <h4 className="font-semibold">Applicants with Rank 1:</h4>
-            {Object.entries(rankOneCounts).length === 0 ? (
-              <p className="text-sm text-gray-600">None</p>
-            ) : (
-              <ul className="list-disc list-inside text-sm text-gray-700">
-                {Object.entries(rankOneCounts).map(([username, count]) => (
-                  <li key={username}>{username}: {count} time(s)</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { useAuth } from "../context/AuthContext"; // Make sure you export useAuth
+import { useAuth } from "../context/AuthContext"; 
 
 export default function SignInTutor() {
   const router = useRouter();
@@ -27,7 +27,7 @@ export default function SignInTutor() {
     const success = login(email, password);
     if (success) {
       setMessage("");
-      router.push("/tutor-dashboard"); // Change this to your actual landing page
+      router.push("/tutor-dashboard"); 
     } else {
       setMessage("Invalid email or password");
     }

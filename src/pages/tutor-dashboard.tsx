@@ -63,7 +63,7 @@ export default function TutorDashboard() {
     localStorage.setItem("applicants", JSON.stringify(applicants));
     console.log(applicants)
 
-    setMessage("✅ Application submitted!");
+    setMessage("Application submitted!");
     setSelectedCourse("");
     setSelectedRole("");
     setAvailability("");
@@ -78,7 +78,7 @@ export default function TutorDashboard() {
     <div>
       <Navbar/>
 
-      {/* Dashboard Content */}
+      
       <div className="max-w-5xl mx-auto p-6 mt-10 bg-white shadow-xl rounded-xl">
         <h2 className="text-3xl font-bold mb-2 text-center">Welcome, {tutor?.username}</h2>
         <p className="text-center text-gray-600 mb-6">Select a role and choose a course to apply for.</p>
@@ -87,7 +87,7 @@ export default function TutorDashboard() {
     {topCourses.tutor.length > 0 && (
       <div className="text-center mb-6">
         <h3 className="text-xl font-semibold text-blue-700 mb-2">
-          🔥 Top 3 Tutor Applied Courses
+          Top 3 Tutor Applied Courses
         </h3>
         <ul className="space-y-1">
           {topCourses.tutor.map((course, index) => (
@@ -102,7 +102,7 @@ export default function TutorDashboard() {
     {topCourses.labAssistant.length > 0 && (
       <div className="text-center">
         <h3 className="text-xl font-semibold text-green-700 mb-2">
-          🧪 Top 3 Lab Assistant Applied Courses
+           Top 3 Lab Assistant Applied Courses
         </h3>
         <ul className="space-y-1">
           {topCourses.labAssistant.map((course, index) => (
@@ -117,10 +117,10 @@ export default function TutorDashboard() {
 )}
 
 
-        {/* Role and Course Selection */}
+        
         {!selectedCourse ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Tutor Section */}
+            
             <div className="border rounded-lg p-4">
               <h3 className="text-xl font-semibold text-blue-600 mb-2 text-center">Tutor Positions</h3>
               <div className="space-y-2">
@@ -140,7 +140,7 @@ export default function TutorDashboard() {
               </div>
             </div>
 
-            {/* Lab Assistant Section */}
+            
             <div className="border rounded-lg p-4">
               <h3 className="text-xl font-semibold text-green-600 mb-2 text-center">Lab Assistant Positions</h3>
               <div className="space-y-2">
@@ -161,7 +161,7 @@ export default function TutorDashboard() {
             </div>
           </div>
         ) : (
-          // Application Form
+          //  Form
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
             <h3 className="text-xl text-center font-bold mb-4">
               Applying for: <span className="text-blue-600">{selectedCourse}</span> as{" "}

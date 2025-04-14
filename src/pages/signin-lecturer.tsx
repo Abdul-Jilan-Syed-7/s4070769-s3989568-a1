@@ -37,7 +37,7 @@ export default function SignInTutor() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700">
       <div className="bg-white p-10 rounded-3xl shadow-xl max-w-md w-full text-gray-800 relative">
 
-        {/* Back Button */}
+        
         <button
           onClick={() => router.push("/")}
           className="absolute top-4 left-4 text-gray-600 hover:text-blue-600"
