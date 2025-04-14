@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext"; // Make sure you export useAuth
 
 export default function SignInTutor() {
   const router = useRouter();
@@ -10,37 +10,26 @@ export default function SignInTutor() {
   const [password, setPassword] = useState("");
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [num1, setNum1] = useState(0);
-  const [num2, setNum2] = useState(0);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    generateCaptcha();
+    setNum1(Math.floor(Math.random() * 1000000) + 1);
   }, []);
-
-  const generateCaptcha = () => {
-    const a = Math.floor(Math.random() * 10) + 1;
-    const b = Math.floor(Math.random() * 10) + 1;
-    setNum1(a);
-    setNum2(b);
-    setCaptchaAnswer("");
-    setMessage("");
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const correct = num1 + num2;
-    if (parseInt(captchaAnswer) !== correct) {
-      setMessage("❌ CAPTCHA incorrect. Try again.");
-      generateCaptcha();
+    if (parseInt(captchaAnswer) !== num1) {
+      setMessage("CAPTCHA is incorrect");
       return;
     }
 
     const success = login(email, password);
-    if (success && email.includes("tutor")) {
-      router.push("/tutor-dashboard");
+    if (success) {
+      setMessage("");
+      router.push("/tutor-dashboard"); // Change this to your actual landing page
     } else {
-      setMessage("❌ Invalid credentials or not a tutor account.");
+      setMessage("Invalid email or password");
     }
   };
 
@@ -48,7 +37,6 @@ export default function SignInTutor() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700">
       <div className="bg-white p-10 rounded-3xl shadow-xl max-w-md w-full text-gray-800 relative">
 
-        {/* Back Button */}
         <button
           onClick={() => router.push("/")}
           className="absolute top-4 left-4 text-gray-600 hover:text-blue-600"
@@ -79,13 +67,14 @@ export default function SignInTutor() {
 
           <div>
             <label className="block text-sm mb-1 font-medium">
-              What is {num1} + {num2}? (CAPTCHA)
+              CAPTCHA: {num1}
             </label>
             <input
               type="number"
               className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={captchaAnswer}
               onChange={(e) => setCaptchaAnswer(e.target.value)}
+              placeholder="Enter the CAPTCHA"
               required
             />
           </div>
