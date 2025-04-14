@@ -1,154 +1,199 @@
 import Navbar from "../components/nav";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { createPortal } from "react-dom";
 
-type Applicant = {
+// Types
+interface Applicant {
   email: string;
-  username?: string;
+  username: string;
   course: string;
   role: string;
   availability: string;
   previousRoles: string;
   skills: string;
   credentials: string;
-};
+}
 
-type Review = {
-  email: string;
+interface Review {
+  username: string;
   course: string;
+  role: string;
   rank: number;
   comment: string;
-};
+}
 
+function RankModal({ onClose, onSave, applicant, usedRanks }: {
+  onClose: () => void;
+  onSave: (rank: number, comment: string) => void;
+  applicant: Applicant;
+  usedRanks: number[];
+}) {
+  const [rank, setRank] = useState<number>(0);
+  const [comment, setComment] = useState("");
+  const availableRanks = [1, 2, 3, 4, 5].filter((r) => !usedRanks.includes(r));
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded shadow-xl max-w-sm w-full">
+        <h3 className="text-xl font-semibold mb-4">Rank Applicant</h3>
+        <p className="mb-2 font-medium">{applicant.username || applicant.email}</p>
+        <label className="block mb-2">Rank (1-5):</label>
+        <select
+          value={rank}
+          onChange={(e) => setRank(Number(e.target.value))}
+          className="w-full border p-2 rounded mb-4"
+        >
+          <option value="">-- Select Rank --</option>
+          {availableRanks.map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
+        <label className="block mb-2">Comment:</label>
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          className="w-full border p-2 rounded mb-4"
+          rows={3}
+        />
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-400 text-white">Cancel</button>
+          <button
+            onClick={() => rank && onSave(rank, comment)}
+            className="px-4 py-2 rounded bg-blue-600 text-white"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// Main component
 export default function LecturerDashboard() {
   const { lecturer } = useAuth();
   const [applicants, setApplicants] = useState<Applicant[]>([]);
+  const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(null);
+  const [selectedReviews, setSelectedReviews] = useState<Record<string, Review>>({});
   const [selectedCourse, setSelectedCourse] = useState<string>("");
-  const [selectedApplicants, setSelectedApplicants] = useState<Record<string, Review>>({});
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState<"course" | "availability">("course");
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [sortKey, setSortKey] = useState<"course" | "availability">("course");
+  const [mostChosen, setMostChosen] = useState<string | null>(null);
+  const [leastChosen, setLeastChosen] = useState<string | null>(null);
+  const [unselected, setUnselected] = useState<string[]>([]);
+  const [rankOneCounts, setRankOneCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const data = localStorage.getItem("applicants");
     const reviews = localStorage.getItem("reviews");
-
     if (data) setApplicants(JSON.parse(data));
-    if (reviews) setSelectedApplicants(JSON.parse(reviews));
-
-    const reviewMap: Record<string, number> = {};
-    const parsed = JSON.parse(reviews || "{}");
-    Object.values(parsed).forEach((r: any) => {
-      if (r.email) {
-        reviewMap[r.email] = (reviewMap[r.email] || 0) + 1;
-      }
-    });
-
-    const chart = Object.entries(reviewMap).map(([email, count]) => ({
-      name: email,
-      selections: count,
-    }));
-
-    setChartData(chart);
+    if (reviews) setSelectedReviews(JSON.parse(reviews));
   }, []);
 
-  const handleSelect = (email: string, course: string) => {
-    setSelectedApplicants((prev) => {
-      const updated = {
-        ...prev,
-        [email]: {
-          email,
-          course,
-          rank: prev[email]?.rank || 1,
-          comment: prev[email]?.comment || "",
-        },
-      };
-      localStorage.setItem("reviews", JSON.stringify(updated));
-      return updated;
+  useEffect(() => {
+    const countMap: Record<string, number> = {};
+    const rankOneMap: Record<string, number> = {};
+    Object.values(selectedReviews).forEach((r) => {
+      countMap[r.username] = (countMap[r.username] || 0) + 1;
+      if (r.rank === 1) {
+        rankOneMap[r.username] = (rankOneMap[r.username] || 0) + 1;
+      }
     });
+    const entries = Object.entries(countMap);
+    entries.sort((a, b) => {
+      if (b[1] === a[1]) return a[0].localeCompare(b[0]);
+      return b[1] - a[1];
+    });
+    setMostChosen(entries[0]?.[0] || null);
+    setLeastChosen(entries[entries.length - 1]?.[0] || null);
+    setRankOneCounts(rankOneMap);
+
+    const selectedUsernames = new Set(Object.keys(countMap));
+    setUnselected(applicants.map(a => a.username).filter(u => !selectedUsernames.has(u)));
+  }, [selectedReviews, applicants]);
+
+  const handleSaveReview = (rank: number, comment: string) => {
+    if (!selectedApplicant) return;
+    const key = `${selectedApplicant.username}_${selectedApplicant.course}_${selectedApplicant.role}`;
+    const updated = {
+      ...selectedReviews,
+      [key]: {
+        username: selectedApplicant.username || selectedApplicant.email,
+        course: selectedApplicant.course,
+        role: selectedApplicant.role,
+        rank,
+        comment,
+      },
+    };
+    localStorage.setItem("reviews", JSON.stringify(updated));
+    setSelectedReviews(updated);
+    setSelectedApplicant(null);
   };
 
-  const handleRankChange = (email: string, rank: number) => {
-    setSelectedApplicants((prev) => {
-      const updated = {
-        ...prev,
-        [email]: {
-          ...prev[email],
-          rank,
-        },
-      };
-      localStorage.setItem("reviews", JSON.stringify(updated));
-      return updated;
-    });
+  const getUsedRanksForCourse = (course: string, role: string) => {
+    return Object.values(selectedReviews)
+      .filter((r) => r.course === course && r.role === role)
+      .map((r) => r.rank);
   };
 
-  const handleCommentChange = (email: string, comment: string) => {
-    setSelectedApplicants((prev) => {
-      const updated = {
-        ...prev,
-        [email]: {
-          ...prev[email],
-          comment,
-        },
-      };
-      localStorage.setItem("reviews", JSON.stringify(updated));
-      return updated;
-    });
+  const renderApplicantCard = (applicant: Applicant) => {
+    const key = `${applicant.username}_${applicant.course}_${applicant.role}`;
+    const review = selectedReviews[key];
+    return (
+      <div key={key} className="relative bg-white p-4 rounded shadow">
+        {review?.rank && (
+          <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-semibold px-2 py-1 rounded-full">
+            Rank: {review.rank}
+          </div>
+        )}
+        <p><strong>Username:</strong> {applicant.username}</p>
+        <p><strong>Course:</strong> {applicant.course}</p>
+        <p><strong>Availability:</strong> {applicant.availability}</p>
+        <p><strong>Previous Roles:</strong> {applicant.previousRoles}</p>
+        <p><strong>Skills:</strong> {applicant.skills}</p>
+        <p><strong>Credentials:</strong> {applicant.credentials}</p>
+        <button
+          onClick={() => setSelectedApplicant(applicant)}
+          className="mt-2 bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-700"
+        >
+          More Options
+        </button>
+      </div>
+    );
   };
 
-  const filtered = applicants
-    .filter((app) => app.course.toLowerCase().includes(selectedCourse.toLowerCase() || ""))
-    .filter((app) =>
-      [app.email, app.username, app.course, app.availability, app.skills]
+  const filteredApplicants = applicants
+    .filter((a) =>
+      (!selectedCourse || a.course === selectedCourse) &&
+      [a.course, a.username, a.availability, a.skills]
         .join(" ")
         .toLowerCase()
         .includes(searchTerm.toLowerCase())
-    );
-
-  const sorted = filtered.sort((a, b) => {
-    if (sortBy === "course") {
-      return a.course.localeCompare(b.course);
-    } else {
-      return a.availability.localeCompare(b.availability);
-    }
-  });
+    )
+    .sort((a, b) => {
+      if (sortKey === "course") return a.course.localeCompare(b.course);
+      if (sortKey === "availability") return a.availability.localeCompare(b.availability);
+      return 0;
+    });
 
   return (
-    <div>
+    <div className="bg-gray-50 min-h-screen">
       <Navbar />
-      <div className="p-8 max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2 text-center">Lecturer Dashboard</h1>
-        <h2 className="text-xl font-semibold text-center mb-6">
-          Welcome, {lecturer?.username || lecturer?.email}
-        </h2>
+      <div className="max-w-6xl mx-auto p-6">
+        <h1 className="text-3xl font-bold mb-2">Welcome, {lecturer?.username}</h1>
+        <h2 className="text-xl font-semibold text-gray-600 mb-6">LECTURER DASHBOARD</h2>
 
-        {/* Chart */}
-        {chartData.length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold mb-2">📊 Applicant Selection Chart</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData} layout="vertical">
-                <XAxis type="number" allowDecimals={false} />
-                <YAxis type="category" dataKey="name" width={150} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="selections" fill="#3B82F6" name="Selections" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* Filters */}
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="mb-4 grid md:grid-cols-3 gap-4">
           <div>
-            <label className="block font-medium">Filter by Course:</label>
+            <label className="block font-medium mb-1">Filter by Course:</label>
             <select
               value={selectedCourse}
               onChange={(e) => setSelectedCourse(e.target.value)}
               className="w-full border p-2 rounded"
             >
-              <option value="">All</option>
+              <option value="">All Courses</option>
               {[...new Set(applicants.map((a) => a.course))].map((course) => (
                 <option key={course} value={course}>{course}</option>
               ))}
@@ -156,21 +201,21 @@ export default function LecturerDashboard() {
           </div>
 
           <div>
-            <label className="block font-medium">Search Applicants:</label>
+            <label className="block font-medium mb-1">Search:</label>
             <input
               type="text"
-              placeholder="Name, availability, skill..."
-              className="w-full border p-2 rounded"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by name, course, skill, availability"
+              className="w-full border p-2 rounded"
             />
           </div>
 
           <div>
-            <label className="block font-medium">Sort By:</label>
+            <label className="block font-medium mb-1">Sort By:</label>
             <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "course" | "availability")}
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as "course" | "availability")}
               className="w-full border p-2 rounded"
             >
               <option value="course">Course</option>
@@ -179,61 +224,51 @@ export default function LecturerDashboard() {
           </div>
         </div>
 
-        {/* Applicants */}
-        {sorted.length === 0 ? (
-          <p className="text-center text-gray-500">No matching applicants found.</p>
-        ) : (
-          sorted.map((applicant, index) => (
-            <div key={index} className="relative border rounded p-4 mb-6 shadow-md">
-              {selectedApplicants[applicant.email]?.rank && (
-                <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                  Rank: {selectedApplicants[applicant.email].rank}
-                </div>
-              )}
-
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-lg font-semibold">
-                  {applicant.username || applicant.email}
-                </h2>
-                <button
-                  onClick={() => handleSelect(applicant.email, applicant.course)}
-                  className="bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600"
-                >
-                  Select
-                </button>
-              </div>
-
-              <p><strong>Course:</strong> {applicant.course}</p>
-              <p><strong>Availability:</strong> {applicant.availability}</p>
-              <p><strong>Previous Roles:</strong> {applicant.previousRoles}</p>
-              <p><strong>Skills:</strong> {applicant.skills}</p>
-              <p><strong>Credentials:</strong> {applicant.credentials}</p>
-
-              {selectedApplicants[applicant.email] && (
-                <div className="mt-4 bg-gray-50 p-4 rounded border">
-                  <label className="block font-medium">Rank (1–10):</label>
-                  <input
-                    type="number"
-                    value={selectedApplicants[applicant.email].rank}
-                    onChange={(e) => handleRankChange(applicant.email, parseInt(e.target.value))}
-                    className="border p-2 rounded w-20 mt-1"
-                    min={1}
-                    max={10}
-                  />
-
-                  <label className="block mt-4 font-medium">Comment:</label>
-                  <textarea
-                    value={selectedApplicants[applicant.email].comment}
-                    onChange={(e) => handleCommentChange(applicant.email, e.target.value)}
-                    className="w-full p-2 border rounded mt-1"
-                    rows={3}
-                  />
-                </div>
-              )}
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Tutor Applications */}
+          <div>
+            <h3 className="text-lg font-bold mb-4 text-blue-600">Tutor Applicants</h3>
+            <div className="space-y-4">
+              {filteredApplicants.filter((a) => a.role === "tutor").map(renderApplicantCard)}
             </div>
-          ))
+          </div>
+
+          {/* Lab Assistant Applications */}
+          <div>
+            <h3 className="text-lg font-bold mb-4 text-green-600">Lab Assistant Applicants</h3>
+            <div className="space-y-4">
+              {filteredApplicants.filter((a) => a.role === "lab-assistant").map(renderApplicantCard)}
+            </div>
+          </div>
+        </div>
+
+        {selectedApplicant && (
+          <RankModal
+            applicant={selectedApplicant}
+            usedRanks={getUsedRanksForCourse(selectedApplicant.course, selectedApplicant.role)}
+            onClose={() => setSelectedApplicant(null)}
+            onSave={handleSaveReview}
+          />
         )}
       </div>
+      <div className="mb-8 bg-white border rounded p-4 shadow">
+          <h3 className="text-lg font-bold mb-2">Applicant Selection Summary</h3>
+          <p><strong>Most Chosen Applicant:</strong> {mostChosen || "N/A"}</p>
+          <p><strong>Least Chosen Applicant:</strong> {leastChosen || "N/A"}</p>
+          <p><strong>Unselected Applicants:</strong> {unselected.length > 0 ? unselected.join(", ") : "None"}</p>
+          <div className="mt-2">
+            <h4 className="font-semibold">Applicants with Rank 1:</h4>
+            {Object.entries(rankOneCounts).length === 0 ? (
+              <p className="text-sm text-gray-600">None</p>
+            ) : (
+              <ul className="list-disc list-inside text-sm text-gray-700">
+                {Object.entries(rankOneCounts).map(([username, count]) => (
+                  <li key={username}>{username}: {count} time(s)</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
     </div>
   );
 }
